@@ -6,6 +6,8 @@ one-nio
 one-nio is a library for building high performance Java servers.
 It features OS capabilities and JDK internal APIs essential for making your high load applications get maximum of the underlying system.
 
+Contains small changes that helps to avoid unnecessary per/request memory allocations and decrease GC load.
+
 one-nio highlights
 ==================
  - Own native socket library.
