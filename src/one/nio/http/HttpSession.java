@@ -133,9 +133,12 @@ public class HttpSession extends Session {
             throw new BufferOverflowException();
         }
 
-        byte[] body = new byte[contentLength];
+        //use thread local byte buffer from application to decrease garbage collector load
+
+        byte[] body = server.getBody(contentLength);
         System.arraycopy(buffer, offset, body, 0, requestBodyOffset = Math.min(remaining, contentLength));
         parsing.setBody(body);
+        parsing.contentLength = contentLength;
         return requestBodyOffset;
     }
 
@@ -265,4 +268,5 @@ public class HttpSession extends Session {
         byte[] bytes = response.toBytes(includeBody);
         super.write(bytes, 0, bytes.length);
     }
+
 }

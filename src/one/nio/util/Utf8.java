@@ -16,6 +16,9 @@
 
 package one.nio.util;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static one.nio.util.JavaInternals.*;
 
 public final class Utf8 {
@@ -63,6 +66,10 @@ public final class Utf8 {
         return read(buf, byteArrayOffset + start, length);
     }
 
+    public static String readHeader(byte[] buf, int start, int length) {
+        return readHeader(buf, byteArrayOffset + start, length);
+    }
+
     public static int write(String s, Object obj, long start) {
         int length = s.length();
         long pos = start;
@@ -104,8 +111,65 @@ public final class Utf8 {
         return (int) (pos - start);
     }
 
+    //decrease memory allocations while parsing headers -> no GC trash
+
+    static ThreadLocal<char[]> TMP_TL = new ThreadLocal<char[]>() {
+        @Override
+        protected char[] initialValue() {
+            return new char[10000];
+        }
+    };
+
+    static ThreadLocal<Map<Long, String>> HEADERS_TL = new ThreadLocal<Map<Long, String>>() {
+        @Override
+        protected Map<Long, String> initialValue() {
+            return new HashMap<>();
+        }
+    };
+
+    public static long getStrHash(char[] body, int from, int to) {
+        long hash = 7;
+        for (int i = from; i < to; i++) {
+            hash = hash*31L + (long)body[i];
+        }
+        return hash;
+    }
+
+
+    public static String readHeader(Object obj, long start, int length) {
+        char[] result = TMP_TL.get();
+        int chars = 0;
+        long end = start + length;
+        for (long pos = start; pos < end; chars++) {
+            byte b = unsafe.getByte(obj, pos);
+            if (b >= 0) {
+                result[chars] = (char) b;
+                pos++;
+            } else if ((b & 0xe0) == 0xc0) {
+                result[chars] = (char) ((b & 0x1f) << 6 | (unsafe.getByte(obj, pos + 1) & 0x3f));
+                pos += 2;
+            } else {
+                result[chars] = (char) ((b & 0x0f) << 12 | (unsafe.getByte(obj, pos + 1) & 0x3f) << 6 | (unsafe.getByte(obj, pos + 2) & 0x3f));
+                pos += 3;
+            }
+        }
+
+        Map<Long, String> headers = HEADERS_TL.get();
+
+        long hash = getStrHash(result, 0, chars);
+
+        String header = headers.get(hash);
+
+        if (header == null) {
+            header = new String(result, 0, chars);
+            headers.put(hash, header);
+        }
+
+        return header;
+    }
+
     public static String read(Object obj, long start, int length) {
-        char[] result = new char[length];
+        char[] result = TMP_TL.get();
         int chars = 0;
         long end = start + length;
         for (long pos = start; pos < end; chars++) {

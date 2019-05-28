@@ -73,6 +73,7 @@ public class Request {
     private int headerCount;
     private String[] headers;
     private byte[] body;
+    public int contentLength;
 
     public Request(int method, String uri, boolean http11) {
         this.method = method;

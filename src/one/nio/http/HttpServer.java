@@ -129,4 +129,9 @@ public class HttpServer extends Server {
         }
         return null;
     }
+
+    public byte[] getBody(int contentLength) {
+        return new byte[contentLength];
+    }
+
 }
